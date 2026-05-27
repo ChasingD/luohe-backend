@@ -1,32 +1,48 @@
+require("dotenv").config();
 const { Sequelize, DataTypes } = require("sequelize");
 
-// 从环境变量中读取数据库配置
-const { MYSQL_USERNAME, MYSQL_PASSWORD, MYSQL_ADDRESS = "" } = process.env;
+const {
+  MYSQL_USERNAME = "root",
+  MYSQL_PASSWORD = "mS2Ag2Yx",
+  MYSQL_ADDRESS = "localhost:3306",
+  MYSQL_DATABASE = "luohe",
+} = process.env;
 
-const [host, port] = MYSQL_ADDRESS.split(":");
+const [host, port = "3306"] = MYSQL_ADDRESS.split(":");
 
-const sequelize = new Sequelize("nodejs_demo", MYSQL_USERNAME, MYSQL_PASSWORD, {
+const sequelize = new Sequelize(MYSQL_DATABASE, MYSQL_USERNAME, MYSQL_PASSWORD, {
   host,
   port,
-  dialect: "mysql" /* one of 'mysql' | 'mariadb' | 'postgres' | 'mssql' */,
+  dialect: "mysql",
+  logging: false,
 });
 
-// 定义数据模型
-const Counter = sequelize.define("Counter", {
-  count: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 1,
-  },
-});
-
-// 数据库初始化方法
-async function init() {
-  await Counter.sync({ alter: true });
+// 自动创建数据库（如不存在）
+async function ensureDatabase() {
+  const mysql = require("mysql2/promise");
+  const conn = await mysql.createConnection({
+    host,
+    port,
+    user: MYSQL_USERNAME,
+    password: MYSQL_PASSWORD,
+  });
+  await conn.query(`CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+  await conn.end();
 }
 
-// 导出初始化方法和模型
+// 数据库初始化
+async function init() {
+  await ensureDatabase();
+  await sequelize.authenticate();
+  // 加载模型并同步表结构
+  require("./models/User");
+  await sequelize.sync({ alter: true });
+  console.log("数据库连接成功，表已同步");
+}
+
 module.exports = {
   init,
-  Counter,
+  sequelize,
+  Sequelize,
+  DataTypes,
 };
