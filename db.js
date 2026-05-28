@@ -14,7 +14,7 @@ const sequelize = new Sequelize(MYSQL_DATABASE, MYSQL_USERNAME, MYSQL_PASSWORD, 
   host,
   port,
   dialect: "mysql",
-  logging: false,
+  logging: console.log,
 });
 
 // 自动创建数据库（如不存在）
@@ -38,7 +38,7 @@ async function init() {
   require("./models/User");
   require("./models/SmsCode");
   require("./models/Student");
-  await sequelize.sync({ alter: true });
+  await sequelize.sync();
   console.log("数据库连接成功，表已同步");
 }
 

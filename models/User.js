@@ -3,13 +3,11 @@ const { sequelize, DataTypes } = require("../db");
 const User = sequelize.define("User", {
   openid: {
     type: DataTypes.STRING(64),
-    unique: true,
     allowNull: true,
     comment: "微信openid",
   },
   phone: {
     type: DataTypes.STRING(20),
-    unique: true,
     allowNull: true,
     comment: "手机号",
   },
