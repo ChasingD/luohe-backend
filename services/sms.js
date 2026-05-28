@@ -48,4 +48,3 @@ async function sendSms(phone, code) {
 }
 
 module.exports = { generateCode, sendSms, enabled };
-
