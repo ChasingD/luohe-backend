@@ -1,9 +1,9 @@
 const jwt = require("jsonwebtoken");
-const axios = require("axios");
 const { Op } = require("sequelize");
 const User = require("../models/User");
 const SmsCode = require("../models/SmsCode");
 const { generateCode, sendSms } = require("../services/sms");
+const { jscode2session, getPhoneNumber } = require("../services/wechat");
 
 const JWT_SECRET = process.env.JWT_SECRET || "luohe-jwt-secret";
 const JWT_EXPIRES = process.env.JWT_EXPIRES || "7d";
@@ -89,28 +89,39 @@ async function sendSmsCode(req, res) {
   }
 }
 
-// 微信登录（自动注册）
+// 微信登录（自动注册，首次获取手机号）
 async function wechatLogin(req, res) {
   try {
-    const { code, role } = req.body;
+    const { code, phoneCode, role } = req.body;
     if (!code) return res.send({ code: 400, msg: "缺少登录凭证code" });
 
-    const wxRes = await axios.get("https://api.weixin.qq.com/sns/jscode2session", {
-      params: { appid: APPID, secret: APPSECRET, js_code: code, grant_type: "authorization_code" },
-    });
-
-    const { openid, errcode, errmsg } = wxRes.data;
+    const wxData = await jscode2session(code);
+    const { openid, errcode, errmsg } = wxData;
     if (errcode) return res.send({ code: 500, msg: `微信登录失败: ${errmsg}` });
 
     let user = await User.findOne({ where: { openid } });
     const isNew = !user;
 
+    // 拿手机号（可选，只在首次或用户未绑定时拉）
+    let phone = user && user.phone;
+    if (phoneCode && !phone) {
+      try {
+        phone = await getPhoneNumber(phoneCode);
+      } catch (err) {
+        console.warn("获取手机号失败:", err.message);
+      }
+    }
+
     if (!user) {
       user = await User.create({
         openid,
+        phone: phone || null,
         nickname: "研学用户",
         role: ["student", "teacher"].includes(role) ? role : "student",
       });
+    } else if (phone && !user.phone) {
+      user.phone = phone;
+      await user.save();
     }
 
     const token = generateToken(user);

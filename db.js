@@ -37,6 +37,7 @@ async function init() {
   // 加载模型并同步表结构
   require("./models/User");
   require("./models/SmsCode");
+  require("./models/Student");
   await sequelize.sync({ alter: true });
   console.log("数据库连接成功，表已同步");
 }

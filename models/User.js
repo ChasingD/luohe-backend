@@ -33,6 +33,21 @@ const User = sequelize.define("User", {
     defaultValue: "student",
     comment: "用户角色",
   },
+  realName: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    comment: "真实姓名",
+  },
+  gender: {
+    type: DataTypes.ENUM("male", "female"),
+    allowNull: true,
+    comment: "性别",
+  },
+  identity: {
+    type: DataTypes.STRING(32),
+    allowNull: true,
+    comment: "家长身份：mother/father/grandparent/other",
+  },
 }, {
   tableName: "users",
 });
