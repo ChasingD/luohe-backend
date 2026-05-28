@@ -1,5 +1,4 @@
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const axios = require("axios");
 const { Op } = require("sequelize");
 const User = require("../models/User");
@@ -54,23 +53,15 @@ async function consumeCode(phone, scene, code) {
 // 发送短信验证码
 async function sendSmsCode(req, res) {
   try {
-    const { phone, scene = "register" } = req.body;
+    const { phone, scene = "login" } = req.body;
     if (!PHONE_RE.test(phone || "")) {
       return res.send({ code: 400, msg: "手机号格式错误" });
     }
-    if (!["register", "login", "reset"].includes(scene)) {
+    if (!["login", "reset"].includes(scene)) {
       return res.send({ code: 400, msg: "场景参数错误" });
     }
 
-    if (scene === "register") {
-      const exist = await User.findOne({ where: { phone } });
-      if (exist) return res.send({ code: 400, msg: "该手机号已注册" });
-    }
-    if (scene === "login" || scene === "reset") {
-      const exist = await User.findOne({ where: { phone } });
-      if (!exist) return res.send({ code: 400, msg: "手机号未注册" });
-    }
-
+    // 节流
     const last = await SmsCode.findOne({
       where: { phone, scene },
       order: [["createdAt", "DESC"]],
@@ -98,10 +89,10 @@ async function sendSmsCode(req, res) {
   }
 }
 
-// 微信登录
+// 微信登录（自动注册）
 async function wechatLogin(req, res) {
   try {
-    const { code } = req.body;
+    const { code, role } = req.body;
     if (!code) return res.send({ code: 400, msg: "缺少登录凭证code" });
 
     const wxRes = await axios.get("https://api.weixin.qq.com/sns/jscode2session", {
@@ -111,20 +102,22 @@ async function wechatLogin(req, res) {
     const { openid, errcode, errmsg } = wxRes.data;
     if (errcode) return res.send({ code: 500, msg: `微信登录失败: ${errmsg}` });
 
-    const user = await User.findOne({ where: { openid } });
+    let user = await User.findOne({ where: { openid } });
+    const isNew = !user;
+
     if (!user) {
-      return res.send({
-        code: 1001,
-        msg: "用户未注册",
-        data: { needRegister: true, openid },
+      user = await User.create({
+        openid,
+        nickname: "研学用户",
+        role: ["student", "teacher"].includes(role) ? role : "student",
       });
     }
 
     const token = generateToken(user);
     res.send({
       code: 0,
-      msg: "登录成功",
-      data: { token, user: sanitizeUser(user), isNewUser: false },
+      msg: isNew ? "注册成功" : "登录成功",
+      data: { token, user: sanitizeUser(user), isNewUser: isNew },
     });
   } catch (err) {
     console.error("微信登录异常:", err);
@@ -132,106 +125,37 @@ async function wechatLogin(req, res) {
   }
 }
 
-// 微信注册
-async function wechatRegister(req, res) {
-  try {
-    const { code, role, nickname, avatar } = req.body;
-    if (!code) return res.send({ code: 400, msg: "缺少登录凭证code" });
-    if (role && !["student", "teacher"].includes(role)) {
-      return res.send({ code: 400, msg: "角色参数错误" });
-    }
-
-    const wxRes = await axios.get("https://api.weixin.qq.com/sns/jscode2session", {
-      params: { appid: APPID, secret: APPSECRET, js_code: code, grant_type: "authorization_code" },
-    });
-
-    const { openid, errcode, errmsg } = wxRes.data;
-    if (errcode) return res.send({ code: 500, msg: `微信授权失败: ${errmsg}` });
-
-    const exist = await User.findOne({ where: { openid } });
-    if (exist) {
-      return res.send({ code: 400, msg: "该微信号已注册，请直接登录" });
-    }
-
-    const user = await User.create({
-      openid,
-      nickname: nickname || "研学用户",
-      avatar: avatar || undefined,
-      role: role || "student",
-    });
-
-    const token = generateToken(user);
-    res.send({
-      code: 0,
-      msg: "注册成功",
-      data: { token, user: sanitizeUser(user), isNewUser: true },
-    });
-  } catch (err) {
-    console.error("微信注册异常:", err);
-    res.send({ code: 500, msg: "服务器异常" });
-  }
-}
-
-// 手机号密码登录
+// 手机号验证码登录（自动注册）
 async function phoneLogin(req, res) {
   try {
-    const { phone, password } = req.body;
-    if (!phone || !password) {
-      return res.send({ code: 400, msg: "请输入手机号和密码" });
-    }
-
-    const user = await User.findOne({ where: { phone } });
-    if (!user) return res.send({ code: 400, msg: "手机号未注册" });
-
-    const ok = await bcrypt.compare(password, user.password || "");
-    if (!ok) return res.send({ code: 400, msg: "密码错误" });
-
-    const token = generateToken(user);
-    res.send({ code: 0, msg: "登录成功", data: { token, user: sanitizeUser(user) } });
-  } catch (err) {
-    console.error("手机登录异常:", err);
-    res.send({ code: 500, msg: "服务器异常" });
-  }
-}
-
-// 手机号注册
-async function phoneRegister(req, res) {
-  try {
-    const { phone, password, code, nickname, role } = req.body;
-
+    const { phone, code, role } = req.body;
     if (!PHONE_RE.test(phone || "")) {
       return res.send({ code: 400, msg: "手机号格式错误" });
     }
-    if (!password || password.length < 6 || password.length > 20) {
-      return res.send({ code: 400, msg: "密码长度需 6-20 位" });
-    }
     if (!code) return res.send({ code: 400, msg: "请输入验证码" });
-    if (role && !["student", "teacher"].includes(role)) {
-      return res.send({ code: 400, msg: "角色参数错误" });
-    }
 
-    const exist = await User.findOne({ where: { phone } });
-    if (exist) return res.send({ code: 400, msg: "该手机号已注册" });
-
-    const valid = await consumeCode(phone, "register", code);
+    const valid = await consumeCode(phone, "login", code);
     if (!valid) return res.send({ code: 400, msg: "验证码错误或已过期" });
 
-    const hash = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      phone,
-      password: hash,
-      nickname: nickname || "研学用户",
-      role: role || "student",
-    });
+    let user = await User.findOne({ where: { phone } });
+    const isNew = !user;
+
+    if (!user) {
+      user = await User.create({
+        phone,
+        nickname: "研学用户",
+        role: ["student", "teacher"].includes(role) ? role : "student",
+      });
+    }
 
     const token = generateToken(user);
     res.send({
       code: 0,
-      msg: "注册成功",
-      data: { token, user: sanitizeUser(user) },
+      msg: isNew ? "注册成功" : "登录成功",
+      data: { token, user: sanitizeUser(user), isNewUser: isNew },
     });
   } catch (err) {
-    console.error("注册异常:", err);
+    console.error("手机登录异常:", err);
     res.send({ code: 500, msg: "服务器异常" });
   }
 }
@@ -243,4 +167,4 @@ async function getUserInfo(req, res) {
   res.send({ code: 0, data: sanitizeUser(user) });
 }
 
-module.exports = { sendSmsCode, wechatLogin, wechatRegister, phoneLogin, phoneRegister, getUserInfo };
+module.exports = { sendSmsCode, wechatLogin, phoneLogin, getUserInfo };
