@@ -89,10 +89,10 @@ async function sendSmsCode(req, res) {
   }
 }
 
-// 微信登录（自动注册，首次获取手机号）
+// 微信登录（自动注册，首次获取手机号+头像昵称）
 async function wechatLogin(req, res) {
   try {
-    const { code, phoneCode, role } = req.body;
+    const { code, phoneCode, role, avatar, nickname } = req.body;
     if (!code) return res.send({ code: 400, msg: "缺少登录凭证code" });
 
     const wxData = await jscode2session(code);
@@ -116,12 +116,26 @@ async function wechatLogin(req, res) {
       user = await User.create({
         openid,
         phone: phone || null,
-        nickname: "研学用户",
+        nickname: nickname || "研学用户",
+        avatar: avatar || "/images/default-avatar.png",
         role: ["student", "teacher"].includes(role) ? role : "student",
       });
-    } else if (phone && !user.phone) {
-      user.phone = phone;
-      await user.save();
+    } else {
+      // 更新已有用户的手机号/头像/昵称（如果传了且当前为空）
+      let updated = false;
+      if (phone && !user.phone) {
+        user.phone = phone;
+        updated = true;
+      }
+      if (avatar && (!user.avatar || user.avatar === "/images/default-avatar.png")) {
+        user.avatar = avatar;
+        updated = true;
+      }
+      if (nickname && user.nickname === "研学用户") {
+        user.nickname = nickname;
+        updated = true;
+      }
+      if (updated) await user.save();
     }
 
     const token = generateToken(user);
