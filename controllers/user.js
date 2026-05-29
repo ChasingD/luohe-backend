@@ -11,6 +11,9 @@ function sanitizeUser(user) {
     realName: user.realName,
     gender: user.gender,
     identity: user.identity,
+    teacherType: user.teacherType,
+    school: user.school,
+    orgName: user.orgName,
   };
 }
 
@@ -32,7 +35,7 @@ async function updateProfile(req, res) {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.send({ code: 404, msg: "用户不存在" });
 
-    const allowed = ["nickname", "avatar", "realName", "gender", "identity"];
+    const allowed = ["nickname", "avatar", "realName", "gender", "identity", "teacherType", "school", "orgName"];
     allowed.forEach((key) => {
       if (req.body[key] !== undefined) user[key] = req.body[key];
     });

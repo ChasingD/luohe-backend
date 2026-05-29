@@ -46,6 +46,21 @@ const User = sequelize.define("User", {
     allowNull: true,
     comment: "家长身份：mother/father/grandparent/other",
   },
+  teacherType: {
+    type: DataTypes.ENUM("school", "organization"),
+    allowNull: true,
+    comment: "教师类型",
+  },
+  school: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    comment: "所属学校",
+  },
+  orgName: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    comment: "所属机构",
+  },
 }, {
   tableName: "users",
 });

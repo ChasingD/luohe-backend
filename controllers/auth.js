@@ -30,6 +30,12 @@ function sanitizeUser(user) {
     nickname: user.nickname,
     avatar: user.avatar,
     role: user.role,
+    realName: user.realName,
+    gender: user.gender,
+    identity: user.identity,
+    teacherType: user.teacherType,
+    school: user.school,
+    orgName: user.orgName,
   };
 }
 
