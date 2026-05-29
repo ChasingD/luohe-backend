@@ -127,7 +127,7 @@ async function wechatLogin(req, res) {
         role: ["student", "teacher"].includes(role) ? role : "student",
       });
     } else {
-      // 更新已有用户的手机号/头像/昵称（如果传了且当前为空）
+      // 更新已有用户的手机号/头像/昵称/角色（如果传了且当前为空或可更新）
       let updated = false;
       if (phone && !user.phone) {
         user.phone = phone;
@@ -139,6 +139,11 @@ async function wechatLogin(req, res) {
       }
       if (nickname && user.nickname === "研学用户") {
         user.nickname = nickname;
+        updated = true;
+      }
+      // 允许用户切换角色（教师↔学生）
+      if (["student", "teacher"].includes(role) && user.role !== role) {
+        user.role = role;
         updated = true;
       }
       if (updated) await user.save();
