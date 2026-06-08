@@ -50,6 +50,8 @@ async function updateProfile(req, res) {
 // DELETE /api/user/account
 async function deleteAccount(req, res) {
   try {
+    const Student = require("../models/Student");
+    await Student.destroy({ where: { userId: req.user.id } });
     await User.destroy({ where: { id: req.user.id } });
     res.send({ code: 0, msg: "账号已注销" });
   } catch (err) {
