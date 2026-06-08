@@ -20,7 +20,6 @@ app.get("/", (req, res) => {
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/user", require("./routes/user"));
 app.use("/api/student", require("./routes/student"));
-app.use("/api/upload", require("./routes/upload"));
 
 // 健康检查
 app.get("/api/health", (req, res) => {
