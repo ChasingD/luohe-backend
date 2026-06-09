@@ -127,7 +127,13 @@ async function wechatLogin(req, res) {
         role: ["student", "teacher"].includes(role) ? role : "student",
       });
     } else {
-      // 更新已有用户的手机号/头像/昵称/角色（如果传了且当前为空或可更新）
+      // 已有用户不允许切换角色
+      console.log("[wechatLogin] existing user, DB role:", user.role, "req role:", role);
+      if (["student", "teacher"].includes(role) && user.role !== role) {
+        const label = user.role === "teacher" ? "教师" : "学生/家长";
+        return res.send({ code: 409, msg: `该账号已注册为${label}，不允许切换角色登录` });
+      }
+      // 更新已有用户的手机号/头像/昵称
       let updated = false;
       if (phone && !user.phone) {
         user.phone = phone;
@@ -139,11 +145,6 @@ async function wechatLogin(req, res) {
       }
       if (nickname && user.nickname === "研学用户") {
         user.nickname = nickname;
-        updated = true;
-      }
-      // 允许用户切换角色（教师↔学生）
-      if (["student", "teacher"].includes(role) && user.role !== role) {
-        user.role = role;
         updated = true;
       }
       if (updated) await user.save();
@@ -182,6 +183,13 @@ async function phoneLogin(req, res) {
         nickname: "研学用户",
         role: ["student", "teacher"].includes(role) ? role : "student",
       });
+    } else {
+      // 已有用户不允许切换角色
+      console.log("[phoneLogin] existing user, DB role:", user.role, "req role:", role);
+      if (["student", "teacher"].includes(role) && user.role !== role) {
+        const label = user.role === "teacher" ? "教师" : "学生/家长";
+        return res.send({ code: 409, msg: `该账号已注册为${label}，不允许切换角色登录` });
+      }
     }
 
     const token = generateToken(user);
