@@ -14,7 +14,20 @@ const sequelize = new Sequelize(MYSQL_DATABASE, MYSQL_USERNAME, MYSQL_PASSWORD, 
   host,
   port,
   dialect: "mysql",
-  logging: console.log,
+  logging: false,
+  pool: {
+    max: 5,
+    min: 0,
+    acquire: 30000,     // 获取连接超时 30s
+    idle: 10000,        // 空闲连接 10s 后释放
+    evict: 1000,        // 每秒检查一次
+  },
+  retry: {
+    max: 3,             // 连接失败最多重试 3 次
+  },
+  dialectOptions: {
+    connectTimeout: 10000,
+  },
 });
 
 // 自动创建数据库（如不存在）
