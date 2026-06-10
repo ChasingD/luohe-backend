@@ -1,23 +1,21 @@
-const tencentcloud = require("tencentcloud-sdk-nodejs-sms");
+const Core = require("@alicloud/pop-core");
 
 const {
-  TENCENT_SECRET_ID,
-  TENCENT_SECRET_KEY,
-  SMS_SDK_APP_ID,
-  SMS_SIGN_NAME,
-  SMS_TEMPLATE_ID,
-  SMS_REGION = "ap-guangzhou",
+  ALI_SMS_ACCESS_KEY_ID,
+  ALI_SMS_ACCESS_KEY_SECRET,
+  SMS_SIGN_NAME = "优辰星宇",
+  SMS_TEMPLATE_CODE = "SMS_235476361",
 } = process.env;
 
-const enabled = !!(TENCENT_SECRET_ID && TENCENT_SECRET_KEY && SMS_SDK_APP_ID && SMS_TEMPLATE_ID);
+const enabled = !!(ALI_SMS_ACCESS_KEY_ID && ALI_SMS_ACCESS_KEY_SECRET && SMS_SIGN_NAME && SMS_TEMPLATE_CODE);
 
 let client = null;
 if (enabled) {
-  const SmsClient = tencentcloud.sms.v20210111.Client;
-  client = new SmsClient({
-    credential: { secretId: TENCENT_SECRET_ID, secretKey: TENCENT_SECRET_KEY },
-    region: SMS_REGION,
-    profile: { httpProfile: { endpoint: "sms.tencentcloudapi.com" } },
+  client = new Core({
+    accessKeyId: ALI_SMS_ACCESS_KEY_ID,
+    accessKeySecret: ALI_SMS_ACCESS_KEY_SECRET,
+    endpoint: "https://dysmsapi.aliyuncs.com",
+    apiVersion: "2017-05-25",
   });
 }
 
@@ -27,22 +25,21 @@ function generateCode() {
 
 async function sendSms(phone, code) {
   if (!enabled) {
-    console.log(`[SMS-DEV] phone=${phone} code=${code} (腾讯云未配置，降级到控制台)`);
+    console.log(`[SMS-DEV] phone=${phone} code=${code} (阿里云未配置，降级到控制台)`);
     return { ok: true, dev: true };
   }
 
   const params = {
-    PhoneNumberSet: [`+86${phone}`],
-    SmsSdkAppId: SMS_SDK_APP_ID,
+    RegionId: "cn-hangzhou",
+    PhoneNumbers: phone,
     SignName: SMS_SIGN_NAME,
-    TemplateId: SMS_TEMPLATE_ID,
-    TemplateParamSet: [code, "5"],
+    TemplateCode: SMS_TEMPLATE_CODE,
+    TemplateParam: JSON.stringify({ code }),
   };
 
-  const res = await client.SendSms(params);
-  const status = res.SendStatusSet && res.SendStatusSet[0];
-  if (!status || status.Code !== "Ok") {
-    throw new Error(status ? status.Message : "短信发送失败");
+  const res = await client.request("SendSms", params, { method: "POST" });
+  if (res.Code !== "OK") {
+    throw new Error(res.Message || "短信发送失败");
   }
   return { ok: true };
 }

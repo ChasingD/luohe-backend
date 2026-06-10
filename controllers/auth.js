@@ -135,7 +135,7 @@ async function wechatLogin(req, res) {
       }
       // 更新已有用户的手机号/头像/昵称
       let updated = false;
-      if (phone && !user.phone) {
+      if (phone && phone !== user.phone) {
         user.phone = phone;
         updated = true;
       }
