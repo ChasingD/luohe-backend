@@ -106,7 +106,7 @@ async function wechatLogin(req, res) {
     if (errcode) return res.send({ code: 500, msg: `微信登录失败: ${errmsg}` });
 
     let user = await User.findOne({ where: { openid } });
-    const isNew = !user;
+    let isNew = !user;
 
     // 拿手机号（可选，只在首次或用户未绑定时拉）
     let phone = user && user.phone;
@@ -115,6 +115,25 @@ async function wechatLogin(req, res) {
         phone = await getPhoneNumber(phoneCode);
       } catch (err) {
         console.warn("获取手机号失败:", err.message);
+      }
+    }
+
+    // If not found by openid, try by phone — phone-login users may not have openid yet
+    if (!user && phone) {
+      const phoneUser = await User.findOne({ where: { phone } });
+      if (phoneUser) {
+        // Bind openid to existing phone-login user
+        phoneUser.openid = openid;
+        if (avatar && (!phoneUser.avatar || phoneUser.avatar === "/images/default-avatar.png")) {
+          phoneUser.avatar = avatar;
+        }
+        if (nickname && phoneUser.nickname === "研学用户") {
+          phoneUser.nickname = nickname;
+        }
+        await phoneUser.save();
+        user = phoneUser;
+        isNew = false;
+        console.log("[wechatLogin] bound openid to existing phone user:", phoneUser.id);
       }
     }
 
