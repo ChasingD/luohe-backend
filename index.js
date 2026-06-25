@@ -21,6 +21,7 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/user", require("./routes/user"));
 app.use("/api/student", require("./routes/student"));
 app.use("/api/upload", require("./routes/upload"));
+app.use("/api/config", require("./routes/config"));
 
 // 健康检查
 app.get("/api/health", (req, res) => {
